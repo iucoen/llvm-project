@@ -2668,6 +2668,19 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
     Value *Data, *Key;
     if (match(KeyArg, m_ZeroInt()) &&
         match(DataArg, m_Xor(m_Value(Data), m_Value(Key)))) {
+      // We assumed that the LHS of XOR is Data. See if we got it wrong
+      // by matching RHS with a prior aes(i)mc intrinsic.
+      if ((IID == Intrinsic::arm_neon_aese &&
+           match(Key, m_Intrinsic<Intrinsic::arm_neon_aesmc>(m_Value()))) ||
+          (IID == Intrinsic::arm_neon_aesd &&
+           match(Key, m_Intrinsic<Intrinsic::arm_neon_aesimc>(m_Value()))) ||
+          (IID == Intrinsic::aarch64_crypto_aese &&
+           match(Key, m_Intrinsic<Intrinsic::aarch64_crypto_aesmc>(m_Value()))) ||
+          (IID == Intrinsic::aarch64_crypto_aesd &&
+           match(Key, m_Intrinsic<Intrinsic::aarch64_crypto_aesimc>(m_Value())))) {
+        std::swap(Data, Key);
+      }
+
       replaceOperand(*II, 0, Data);
       replaceOperand(*II, 1, Key);
       return II;
